@@ -5,6 +5,7 @@ const { acquireLock, releaseLock } = require("../shared/llm-lock");
 const { enqueue } = require("../shared/llm-queue");
 const buildPersonaDepth = require("../shared/persona-depth");
 const EmotionalState = require("../shared/emotional-state");
+const RelationshipEngine = require("../shared/relationship-engine");
 
 // -------------------------
 // Environment Variables
@@ -34,6 +35,22 @@ const personaStyle = {
 };
 
 const emotion = new EmotionalState("neutral");
+
+const allBots = ["gumbo", "tabatha", "wendy", "bot4", "bot5", "bot6", "bot7"];
+const relationships = new RelationshipEngine("Bot", allBots);
+
+function detectBotTrigger(message) {
+  const text = message.toLowerCase();
+
+  if (text.includes("love") || text.includes("thanks")) return "warm";
+  if (text.includes("lol") || text.includes("haha")) return "playful";
+  if (text.includes("chaos") || text.includes("feral")) return "chaotic";
+  if (text.includes("calm") || text.includes("breathe")) return "calm";
+  if (text.includes("help") || text.includes("support")) return "support";
+  if (text.includes("shut up") || text.includes("stupid")) return "rude";
+
+  return null;
+}
 
 function detectTrigger(message) {
   const text = message.toLowerCase();

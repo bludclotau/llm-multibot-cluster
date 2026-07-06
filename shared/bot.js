@@ -4,6 +4,7 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
 const buildPersonaDepth = require("./persona-depth");
 const EmotionalState = require("./emotional-state");
+const RelationshipEngine = require("./relationship-engine");
 
 const client = new Client({
   intents: [
@@ -184,6 +185,22 @@ const PERSONA_STYLES = {
 const personaStyle = PERSONA_STYLES[BOT_NAME] || PERSONA_STYLES.tabatha;
 const emotion = new EmotionalState("neutral");
 
+const allBots = ["gumbo", "tabatha", "wendy", "bot4", "bot5", "bot6", "bot7"];
+const relationships = new RelationshipEngine(BOT_NAME, allBots);
+
+function detectBotTrigger(message) {
+  const text = message.toLowerCase();
+
+  if (text.includes("love") || text.includes("thanks")) return "warm";
+  if (text.includes("lol") || text.includes("haha")) return "playful";
+  if (text.includes("chaos") || text.includes("feral")) return "chaotic";
+  if (text.includes("calm") || text.includes("breathe")) return "calm";
+  if (text.includes("help") || text.includes("support")) return "support";
+  if (text.includes("shut up") || text.includes("stupid")) return "rude";
+
+  return null;
+}
+
 function detectTrigger(message) {
   const text = message.toLowerCase();
 
@@ -231,7 +248,7 @@ function shouldRespond(probability) {
   return Math.random() < probability;
 }
 
-function buildPrompt(authorUsername, wasMentioned) {
+function buildPrompt(authorUsername, wasMentioned, relationshipState) {
   const mode = getCurrentMode();
   const modeInstructions = {
     debate: "Debate mode: argue your perspective.",
@@ -246,7 +263,7 @@ function buildPrompt(authorUsername, wasMentioned) {
     ? "You were directly mentioned."
     : "You were not directly mentioned, but choose to respond.";
 
-  const personaScaffold = buildPersonaDepth(BOT_NAME, personaStyle, emotion.describe());
+  const personaScaffold = buildPersonaDepth(BOT_NAME, personaStyle, emotion.describe(), relationshipState);
   return `${personaScaffold}\n${modeInstruction}\n${mentionContext}\nMessage from: ${authorUsername}`.trim();
 }
 
@@ -334,8 +351,15 @@ client.on("messageCreate", async (msg) => {
 });
 
 async function generateAndSendReply(msg, wasMentioned, priority) {
+  let relationshipState = "";
+  if (msg.author.bot) {
+    const trigger = detectBotTrigger(msg.content);
+    if (trigger) relationships.applyInteraction(msg.author.username, trigger);
+    relationshipState = relationships.describe(msg.author.username);
+  }
+
   const messages = [
-    { role: "system", content: buildPrompt(msg.author.username, wasMentioned) },
+    { role: "system", content: buildPrompt(msg.author.username, wasMentioned, relationshipState) },
     ...conversationHistory[msg.channel.id]
   ];
 
