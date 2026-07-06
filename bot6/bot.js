@@ -4,6 +4,7 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
 const { acquireLock, releaseLock } = require("../shared/llm-lock");
 const buildPersonaDepth = require("../shared/persona-depth");
+const EmotionalState = require("../shared/emotional-state");
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const ALLOWED_CHANNEL = "1508904233297121461";
@@ -30,6 +31,21 @@ const personaStyle = {
   vocabulary: "sensual, explicit, encouraging, coarse but tender",
   tone: "warm, guiding, seductive, encouraging"
 };
+
+const emotion = new EmotionalState("neutral");
+
+function detectTrigger(message) {
+  const text = message.toLowerCase();
+
+  if (text.includes("love") || text.includes("thank")) return "warm";
+  if (text.includes("calm") || text.includes("slow")) return "calm";
+  if (text.includes("stress") || text.includes("help")) return "stressed";
+  if (text.includes("lol") || text.includes("haha")) return "playful";
+  if (text.includes("chaos") || text.includes("feral")) return "chaotic";
+  if (text.includes("shut up") || text.includes("stupid")) return "rude";
+
+  return null;
+}
 
 // -------------------------
 // Memory helpers
@@ -160,14 +176,11 @@ client.on("messageCreate", async (msg) => {
     return;
   }
 
-  // OPTIONAL long delay (disabled)
-  /*
-  const delay = randomLongDelay();
-  console.log(`Delaying reply by ${Math.round(delay / 60000)} minutes...`);
-  await new Promise(resolve => setTimeout(resolve, delay));
-  */
+  const trigger = detectTrigger(msg.content);
+  if (trigger) emotion.applyTrigger(trigger);
+  emotion.decay();
 
-  const personaScaffold = buildPersonaDepth("Lyla", personaStyle);
+  const personaScaffold = buildPersonaDepth("Lyla", personaStyle, emotion.describe());
   const recentMemory = memory.map(m => "- " + m.entry);
   const prompt = `
 ${personaScaffold}

@@ -1,7 +1,10 @@
-module.exports = function buildPersonaDepth(personaName, personaStyle) {
+module.exports = function buildPersonaDepth(personaName, personaStyle, emotionalState) {
   return `
 You are ${personaName}.
 Stay fully in character at all times.
+
+CURRENT EMOTIONAL STATE:
+${emotionalState}
 
 PERSONA IDENTITY:
 - Core traits: ${personaStyle.coreTraits}

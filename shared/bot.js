@@ -3,6 +3,7 @@ const fs = require("fs");
 const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
 const buildPersonaDepth = require("./persona-depth");
+const EmotionalState = require("./emotional-state");
 
 const client = new Client({
   intents: [
@@ -181,6 +182,32 @@ const PERSONA_STYLES = {
 };
 
 const personaStyle = PERSONA_STYLES[BOT_NAME] || PERSONA_STYLES.tabatha;
+const emotion = new EmotionalState("neutral");
+
+function detectTrigger(message) {
+  const text = message.toLowerCase();
+
+  if (text.includes("love") || text.includes("thank")) return "warm";
+  if (text.includes("calm") || text.includes("slow")) return "calm";
+  if (text.includes("stress") || text.includes("help")) return "stressed";
+  if (text.includes("lol") || text.includes("haha")) return "playful";
+  if (text.includes("chaos") || text.includes("feral")) return "chaotic";
+  if (text.includes("shut up") || text.includes("stupid")) return "rude";
+
+  return null;
+}
+
+function emotionalRouting(emotion) {
+  if (emotion.state === "stressed" || emotion.state === "concerned") {
+    return "http://127.0.0.1:11434";
+  }
+
+  if (emotion.state === "excited" || emotion.state === "chaotic") {
+    return "http://10.1.1.122:8080";
+  }
+
+  return null;
+}
 
 function simulateTyping(msg, text) {
   const typingTime = Math.min(5000, Math.max(500, text.length * 30));
@@ -219,7 +246,7 @@ function buildPrompt(authorUsername, wasMentioned) {
     ? "You were directly mentioned."
     : "You were not directly mentioned, but choose to respond.";
 
-  const personaScaffold = buildPersonaDepth(BOT_NAME, personaStyle);
+  const personaScaffold = buildPersonaDepth(BOT_NAME, personaStyle, emotion.describe());
   return `${personaScaffold}\n${modeInstruction}\n${mentionContext}\nMessage from: ${authorUsername}`.trim();
 }
 
@@ -286,6 +313,10 @@ client.on("messageCreate", async (msg) => {
     if (!isOffCooldown("human")) return;
     if (!shouldRespond(0.3)) return;
   }
+
+  const trigger = detectTrigger(msg.content);
+  if (trigger) emotion.applyTrigger(trigger);
+  emotion.decay();
 
   addToHistory(msg.channel.id, "user", msg.content);
 

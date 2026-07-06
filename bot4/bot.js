@@ -5,6 +5,7 @@ const axios = require("axios");
 const { acquireLock, releaseLock } = require("../shared/llm-lock");
 const { enqueue } = require("../shared/llm-queue");
 const buildPersonaDepth = require("../shared/persona-depth");
+const EmotionalState = require("../shared/emotional-state");
 
 // -------------------------
 // Config
@@ -41,6 +42,21 @@ const personaStyle = {
   vocabulary: "soft, sensory, emotionally charged, affectionate",
   tone: "warm, seductive, supportive, intensely present"
 };
+
+const emotion = new EmotionalState("neutral");
+
+function detectTrigger(message) {
+  const text = message.toLowerCase();
+
+  if (text.includes("love") || text.includes("thank")) return "warm";
+  if (text.includes("calm") || text.includes("slow")) return "calm";
+  if (text.includes("stress") || text.includes("help")) return "stressed";
+  if (text.includes("lol") || text.includes("haha")) return "playful";
+  if (text.includes("chaos") || text.includes("feral")) return "chaotic";
+  if (text.includes("shut up") || text.includes("stupid")) return "rude";
+
+  return null;
+}
 
 // -------------------------
 // Memory helpers
@@ -217,10 +233,14 @@ client.on("messageCreate", async (msg) => {
 
   if (!allowed) return;
 
+  const trigger = detectTrigger(msg.content);
+  if (trigger) emotion.applyTrigger(trigger);
+  emotion.decay();
+
   // -------------------------
   // Build prompt
   // -------------------------
-  const personaScaffold = buildPersonaDepth("Lyla", personaStyle);
+  const personaScaffold = buildPersonaDepth("Lyla", personaStyle, emotion.describe());
   const recentMemory = memory.map(m => "- " + m.entry);
   const prompt = `
 ${personaScaffold}
