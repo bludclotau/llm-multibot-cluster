@@ -1,0 +1,106 @@
+--- a/shared/bot.js
++++ b/shared/bot.js
+@@ -2,9 +2,6 @@
+ const { Client, GatewayIntentBits } = require("discord.js");
+ const axios = require("axios");
+ 
+-// ─────────────────────────────────────────────
+-//  Discord Client
+-// ─────────────────────────────────────────────
+ const client = new Client({
+   intents: [
+     GatewayIntentBits.Guilds,
+@@ -13,29 +10,19 @@
+   ]
+ });
+ 
+-// ─────────────────────────────────────────────
+-//  Environment + Config
+-// ─────────────────────────────────────────────
+ const TOKEN = process.env.DISCORD_TOKEN;
+ const MODEL = process.env.LLM_MODEL || "llama-3.2-3b-uncensored";
+-const PERSONA_FILE = process.env.PERSONA_FILE || "./personas/tabatha.txt";
+-const ALLOWED_CHANNEL = process.env.ALLOWED_CHANNEL || "1504023730387423284";
++const PERSONA_FILE = process.env.PERSONA_FILE || "./personas/default.txt";
++const ALLOWED_CHANNELS_ENV = process.env.ALLOWED_CHANNELS || "1504023730387423284";
+ 
+-// Load persona text
+-const PERSONALITY = fs.readFileSync(PERSONA_FILE, "utf8");
++const PERSONALITY = fs.readFileSync(PERSONA_FILE, "utf-8");
+ 
+-// ─────────────────────────────────────────────
+-//  Typing Simulation
+-// ─────────────────────────────────────────────
+ function simulateTyping(msg, text) {
+   const typingTime = Math.min(5000, Math.max(500, text.length * 30));
+   msg.channel.sendTyping();
+   return new Promise(resolve => setTimeout(resolve, typingTime));
+ }
+ 
+-// ─────────────────────────────────────────────
+-//  Memory System (short‑term, per‑channel)
+-// ─────────────────────────────────────────────
+ let conversationHistory = {};
+ 
+ function addToHistory(channelId, role, content) {
+@@ -50,22 +37,22 @@
+   }
+ }
+ 
+-// ─────────────────────────────────────────────
+-//  Message Handler
+-// ─────────────────────────────────────────────
+ client.on("messageCreate", async (msg) => {
+-const botWasMentioned = msg.mentions.has(client.user.id);
+-if (!botWasMentioned) return;
+-
+   if (msg.author.bot) return;
+-const allowedChannels = (process.env.ALLOWED_CHANNELS || "").split(",");
+ 
+-if (!allowedChannels.includes(msg.channel.id)) return;
++  const botWasMentioned = msg.mentions.has(client.user.id);
++  if (!botWasMentioned) return;
++
++  const allowedChannels = ALLOWED_CHANNELS_ENV.split(",");
++  if (!allowedChannels.includes(msg.channel.id)) return;
+ 
+-  // Add user message to memory
+   addToHistory(msg.channel.id, "user", msg.content);
+ 
+-  // Build full message list
++  if (conversationHistory[msg.channel.id].length > 40) {
++    conversationHistory[msg.channel.id] =
++      conversationHistory[msg.channel.id].slice(-20);
++  }
++
+   const messages = [
+     { role: "system", content: PERSONALITY },
+     ...conversationHistory[msg.channel.id]
+@@ -81,12 +68,14 @@
+       { headers: { "Content-Type": "application/json" } }
+     );
+ 
+-    const reply = response.data.choices[0].message.content;
++    const reply = (response.data.choices[0]?.message?.content || "").trim();
++    if (!reply) {
++      msg.reply("I received an empty response from the model.");
++      return;
++    }
+ 
+-    // Add assistant reply to memory
+     addToHistory(msg.channel.id, "assistant", reply);
+ 
+-    // Typing simulation
+     await simulateTyping(msg, reply);
+ 
+     msg.reply(reply.slice(0, 1900));
+@@ -96,9 +85,6 @@
+   }
+ });
+ 
+-// ─────────────────────────────────────────────
+-//  Startup
+-// ─────────────────────────────────────────────
+ client.on("ready", () => {
+   console.log(`Loaded persona: ${PERSONA_FILE}`);
+   console.log(`Logged in as ${client.user.tag}`);
