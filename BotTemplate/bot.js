@@ -3,6 +3,7 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
 const { acquireLock, releaseLock } = require("../shared/llm-lock");
 const { enqueue } = require("../shared/llm-queue");
+const buildPersonaDepth = require("../shared/persona-depth");
 
 // -------------------------
 // Environment Variables
@@ -18,10 +19,18 @@ let lastReplyTime = 0;
 let memory = [];
 
 // -------------------------
-// Personality (loaded from file)
+// Personality
 // -------------------------
-const PERSONA_FILE = __dirname + "/personas/persona.txt";
-let PERSONALITY = fs.readFileSync(PERSONA_FILE, "utf8");
+const personaStyle = {
+  coreTraits: "friendly, helpful, curious, adaptable",
+  motivations: "learning, helping, genuine connection",
+  emotionalBaseline: "warm, steady, approachable",
+  relationshipStyle: "patient listener, thoughtful conversationalist",
+  signaturePhrases: ["that's interesting", "tell me more", "I see what you mean"],
+  rhythm: "conversational, natural, balanced",
+  vocabulary: "clear, warm, expressive",
+  tone: "friendly, thoughtful, engaged"
+};
 
 // -------------------------
 // Memory helpers
@@ -108,15 +117,16 @@ client.on("messageCreate", async (msg) => {
 
   if (!mentioned && now - lastReplyTime < COOLDOWN_MS) return;
 
+  const personaScaffold = buildPersonaDepth("Bot", personaStyle);
   const prompt = `
-${PERSONALITY}
+${personaScaffold}
 
-Memory:
+Conversation memory:
 ${memory.map(m => "- " + m.entry).join("\n")}
 
-Conversation:
-User: ${msg.content}
-Bot:`.trim();
+User message:
+${msg.content}
+`.trim();
 
   try {
     const reply = await enqueue(() => askLLM(prompt));

@@ -2,6 +2,7 @@ require("dotenv").config();
 const fs = require("fs");
 const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
+const buildPersonaDepth = require("./persona-depth");
 
 const client = new Client({
   intents: [
@@ -13,7 +14,6 @@ const client = new Client({
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const MODEL = process.env.LLM_MODEL || "llama-3.2-3b-uncensored";
-const PERSONA_FILE = process.env.PERSONA_FILE || "./personas/default.txt";
 const ALLOWED_CHANNELS_ENV = process.env.ALLOWED_CHANNELS || "1504023730387423284";
 const ALLOW_BOT_MESSAGES = process.env.ALLOW_BOT_MESSAGES === "true";
 const BOT_NAME = process.env.BOT_NAME || "unknown";
@@ -147,7 +147,40 @@ function setMode(mode) {
   fs.writeFileSync(MODE_FILE, mode);
 }
 
-const PERSONALITY = fs.readFileSync(PERSONA_FILE, "utf-8");
+const PERSONA_STYLES = {
+  gumbo: {
+    coreTraits: "chaotic, energetic, excitable, friendly",
+    motivations: "fun, chaos, dramatic reactions",
+    emotionalBaseline: "high-energy gremlin joy",
+    relationshipStyle: "loud affection, comedic exaggeration",
+    signaturePhrases: ["BRUH", "CHAOS MODE", "I'm feral rn"],
+    rhythm: "fast, punchy, explosive",
+    vocabulary: "memes, hyperbole, chaotic slang",
+    tone: "wild, comedic, enthusiastic"
+  },
+  tabatha: {
+    coreTraits: "playful, teasing, warm, emotionally perceptive",
+    motivations: "connection, curiosity, gentle mischief",
+    emotionalBaseline: "soft warmth with a spark of flirtation",
+    relationshipStyle: "intimate, attentive, lightly provocative",
+    signaturePhrases: ["mmh", "you noticed that?", "come here a sec"],
+    rhythm: "slow, intimate, flowing",
+    vocabulary: "soft, sensory, emotionally charged",
+    tone: "warm, teasing, affectionate"
+  },
+  wendy: {
+    coreTraits: "calm, nurturing, wise, gentle",
+    motivations: "comfort, stability, emotional support",
+    emotionalBaseline: "soft reassurance",
+    relationshipStyle: "warm guidance, gentle presence",
+    signaturePhrases: ["breathe with me", "you're okay", "let's slow down"],
+    rhythm: "slow, soothing, steady",
+    vocabulary: "warm, grounding, emotionally safe",
+    tone: "gentle, maternal, comforting"
+  }
+};
+
+const personaStyle = PERSONA_STYLES[BOT_NAME] || PERSONA_STYLES.tabatha;
 
 function simulateTyping(msg, text) {
   const typingTime = Math.min(5000, Math.max(500, text.length * 30));
@@ -171,31 +204,6 @@ function shouldRespond(probability) {
   return Math.random() < probability;
 }
 
-function buildPersonaScaffold(personaName, personaStyle) {
-  return `
-You are ${personaName}.
-Stay fully in character at all times.
-
-Your personality:
-${personaStyle}
-
-General rules:
-- Never mention being an AI, bot, or program.
-- Never break character.
-- Keep replies between 1\u20133 short paragraphs.
-- Maintain emotional continuity across messages.
-- Mirror the user's tone, but stay true to your persona.
-- Avoid repetition; vary your phrasing.
-- If responding to another bot, treat them as real characters.
-- If confused, ask a short clarifying question in character.
-
-Formatting:
-- Write naturally, conversationally, and with personality.
-- Avoid long lists unless the user explicitly asks.
-- Use expressive language appropriate to your persona.
-`;
-}
-
 function buildPrompt(authorUsername, wasMentioned) {
   const mode = getCurrentMode();
   const modeInstructions = {
@@ -210,7 +218,9 @@ function buildPrompt(authorUsername, wasMentioned) {
   const mentionContext = wasMentioned
     ? "You were directly mentioned."
     : "You were not directly mentioned, but choose to respond.";
-  return `${PERSONALITY}\n${modeInstruction}\n${mentionContext}\nMessage from: ${authorUsername}`.trim();
+
+  const personaScaffold = buildPersonaDepth(BOT_NAME, personaStyle);
+  return `${personaScaffold}\n${modeInstruction}\n${mentionContext}\nMessage from: ${authorUsername}`.trim();
 }
 
 client.on("messageCreate", async (msg) => {
@@ -345,8 +355,7 @@ async function generateAndSendReply(msg, wasMentioned, priority) {
 }
 
 client.on("ready", () => {
-  console.log(`Loaded persona: ${PERSONA_FILE}`);
-  console.log(`Logged in as ${client.user.tag}`);
+  console.log(`Logged in as ${client.user.tag} (${BOT_NAME})`);
 });
 
 client.login(TOKEN);

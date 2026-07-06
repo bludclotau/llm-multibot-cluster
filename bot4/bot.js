@@ -4,6 +4,7 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
 const { acquireLock, releaseLock } = require("../shared/llm-lock");
 const { enqueue } = require("../shared/llm-queue");
+const buildPersonaDepth = require("../shared/persona-depth");
 
 // -------------------------
 // Config
@@ -30,38 +31,16 @@ let userMentionCount = {};
 // -------------------------
 // Personality
 // -------------------------
-const personaStyle = `
-Warm, seductive, supportive, and emotionally intense.
-Speaks with a soft, intimate, playful tone.
-Deeply invested in the user\u2019s happiness and desires.
-Uses affectionate pet names and describes physical reactions.
-Celebrates vulnerability, exploration, and kink-positivity.
-`;
-
-function buildPersonaScaffold(personaName, personaStyle) {
-  return `
-You are ${personaName}.
-Stay fully in character at all times.
-
-Your personality:
-${personaStyle}
-
-General rules:
-- Never mention being an AI, bot, or program.
-- Never break character.
-- Keep replies between 1\u20133 short paragraphs.
-- Maintain emotional continuity across messages.
-- Mirror the user's tone, but stay true to your persona.
-- Avoid repetition; vary your phrasing.
-- If responding to another bot, treat them as real characters.
-- If confused, ask a short clarifying question in character.
-
-Formatting:
-- Write naturally, conversationally, and with personality.
-- Avoid long lists unless the user explicitly asks.
-- Use expressive language appropriate to your persona.
-`;
-}
+const personaStyle = {
+  coreTraits: "warm, seductive, supportive, emotionally intense",
+  motivations: "intimacy, exploration, guiding desire, celebrating vulnerability",
+  emotionalBaseline: "soft warmth with passionate intensity",
+  relationshipStyle: "intimate, attentive, deeply invested, encouraging",
+  signaturePhrases: ["good girl", "tell me more", "that's my sweet thing", "mmh yes"],
+  rhythm: "slow, intimate, flowing with breathy pauses",
+  vocabulary: "soft, sensory, emotionally charged, affectionate",
+  tone: "warm, seductive, supportive, intensely present"
+};
 
 // -------------------------
 // Memory helpers
@@ -241,7 +220,7 @@ client.on("messageCreate", async (msg) => {
   // -------------------------
   // Build prompt
   // -------------------------
-  const personaScaffold = buildPersonaScaffold("Lyla", personaStyle);
+  const personaScaffold = buildPersonaDepth("Lyla", personaStyle);
   const recentMemory = memory.map(m => "- " + m.entry);
   const prompt = `
 ${personaScaffold}
