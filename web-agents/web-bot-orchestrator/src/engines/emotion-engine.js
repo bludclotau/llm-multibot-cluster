@@ -4,47 +4,46 @@ function clamp(value, min, max) {
   return value;
 }
 
-function detectEmotionalTrigger(text) {
-  if (!text || typeof text !== "string") return null;
+function detectSentiment(text) {
+  if (!text || typeof text !== "string") return "neutral";
   const t = text.toLowerCase();
 
-  const keywordMap = {
-    warm: ["thank", "love", "sweet", "kind", "gentle", "hug"],
-    rude: ["shut", "stupid", "idiot", "dumb", "ugly", "hate"],
-    chaotic: ["crazy", "insane", "panic", "chaos", "wild", "explod"],
-    calm: ["chill", "relax", "peace", "calm", "serene", "quiet"],
-    playful: ["lol", "joke", "fun", "silly", "giggle", "play"],
-    stressed: ["stress", "overwhelm", "panic", "urgent", "deadline", "exhaust"],
-    sad: ["sad", "cry", "lonely", "depress", "grief", "sorrow"],
-    defensive: ["why", "accus", "blame", "fault", "unfair"]
-  };
+  const positive = ["thanks", "love", "great", "awesome", "cool"];
+  const negative = ["hate", "bad", "terrible", "stupid", "annoying"];
 
-  for (const [trigger, keywords] of Object.entries(keywordMap)) {
-    for (const kw of keywords) {
-      if (t.includes(kw)) return trigger;
-    }
+  for (const kw of positive) {
+    if (t.includes(kw)) return "positive";
+  }
+  for (const kw of negative) {
+    if (t.includes(kw)) return "negative";
   }
 
-  return null;
+  return "neutral";
+}
+
+function applyDecay(record, options) {
+  const now = Date.now();
+  const elapsed = now - record.lastUpdate;
+
+  if (elapsed > options.decayMs) {
+    record.intensity *= 0.5;
+    if (record.intensity < 0.05) {
+      record.mood = options.baseline;
+    }
+    record.lastUpdate = now;
+  }
 }
 
 class EmotionEngine {
   constructor(options = {}) {
     this.baseline = options.baseline || "neutral";
-    this.defaultIntensity = typeof options.defaultIntensity === "number" ? options.defaultIntensity : 0.3;
-    this.decayAfterMs = typeof options.decayAfterMs === "number" ? options.decayAfterMs : 30000;
-    this.intensityDecay = typeof options.intensityDecay === "number" ? options.intensityDecay : 0.1;
-    this.intensityBoost = typeof options.intensityBoost === "number" ? options.intensityBoost : 0.2;
-    this.triggerMap = {
-      warm: "affection",
-      rude: "annoyed",
-      chaotic: "excited",
-      calm: "soothing",
-      playful: "mischievous",
-      stressed: "concerned",
-      sad: "melancholy",
-      defensive: "guarded",
-      ...(options.triggerMap || {})
+    this.decayMs = typeof options.decayMs === "number" ? options.decayMs : 10 * 60 * 1000;
+    this.intensityRange = options.intensityRange || [0, 1];
+    this.reactions = {
+      positive: ["happy", "warm", "encouraging"],
+      negative: ["frustrated", "cold", "dismissive"],
+      neutral: ["neutral"],
+      ...(options.reactions || {})
     };
 
     this.store = new Map();
@@ -52,20 +51,23 @@ class EmotionEngine {
 
   getState(event) {
     const identityKey = event?.identityKey;
-    if (!identityKey) return `${this.baseline} (intensity ${this.defaultIntensity.toFixed(2)})`;
+    if (!identityKey) {
+      return { mood: this.baseline, intensity: 0 };
+    }
 
     if (!this.store.has(identityKey)) {
       this.store.set(identityKey, {
-        state: this.baseline,
-        intensity: this.defaultIntensity,
+        identityKey,
+        mood: this.baseline,
+        intensity: 0,
         lastUpdate: Date.now()
       });
     }
 
     const record = this.store.get(identityKey);
-    this._applyDecay(record);
+    applyDecay(record, { decayMs: this.decayMs, baseline: this.baseline });
 
-    return `${record.state} (intensity ${record.intensity.toFixed(2)})`;
+    return { mood: record.mood, intensity: record.intensity };
   }
 
   update(event, processedResponse) {
@@ -74,55 +76,34 @@ class EmotionEngine {
 
     if (!this.store.has(identityKey)) {
       this.store.set(identityKey, {
-        state: this.baseline,
-        intensity: this.defaultIntensity,
+        identityKey,
+        mood: this.baseline,
+        intensity: 0,
         lastUpdate: Date.now()
       });
     }
 
     const record = this.store.get(identityKey);
-    const now = Date.now();
-
-    this._applyDecay(record);
+    applyDecay(record, { decayMs: this.decayMs, baseline: this.baseline });
 
     const userText = event?.content || "";
-    const responseText = processedResponse?.text || "";
+    const sentiment = detectSentiment(userText);
 
-    let trigger = detectEmotionalTrigger(userText);
-    if (!trigger) {
-      trigger = detectEmotionalTrigger(responseText);
-    }
-
-    if (trigger) {
-      const newState = this.triggerMap[trigger] || this.baseline;
-      record.state = newState;
-      record.intensity = clamp(record.intensity + this.intensityBoost, 0, 1);
-    }
-
-    record.lastUpdate = now;
-  }
-
-  _applyDecay(record) {
-    const now = Date.now();
-    const elapsed = now - record.lastUpdate;
-
-    if (elapsed > this.decayAfterMs) {
-      record.intensity = clamp(record.intensity - this.intensityDecay, this.defaultIntensity, 1);
-      if (record.intensity <= this.defaultIntensity) {
-        record.state = this.baseline;
+    if (sentiment === "positive") {
+      record.intensity += 0.05;
+      record.mood = this.reactions.positive[0];
+    } else if (sentiment === "negative") {
+      record.intensity += 0.05;
+      record.mood = this.reactions.negative[0];
+    } else {
+      record.intensity = Math.max(0, record.intensity - 0.01);
+      if (record.mood !== this.baseline) {
+        record.mood = this.reactions.neutral[0];
       }
-      record.lastUpdate = now;
     }
-  }
 
-  clear(identityKey) {
-    if (identityKey) {
-      this.store.delete(identityKey);
-    }
-  }
-
-  clearAll() {
-    this.store.clear();
+    record.intensity = clamp(record.intensity, this.intensityRange[0], this.intensityRange[1]);
+    record.lastUpdate = Date.now();
   }
 
   shutdown() {

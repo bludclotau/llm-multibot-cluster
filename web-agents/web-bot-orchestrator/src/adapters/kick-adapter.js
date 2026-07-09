@@ -1,95 +1,79 @@
-const WebSocket = require("ws");
+const { createClient } = require("@retconned/kick-js");
+const { normalizeEvent } = require("../core/event-normalizer");
 
 class KickAdapter {
   constructor(options = {}) {
     if (!options.orchestrator) throw new Error("KickAdapter requires an orchestrator instance");
+    if (!options.channelSlug) throw new Error("KickAdapter requires a channelSlug");
 
     this.orchestrator = options.orchestrator;
-    this.channel = options.channel || "";
-    this.wsUrl = options.wsUrl || "";
-    this.ws = null;
-    this.reconnectDelay = 5000;
-    this.shouldReconnect = true;
+    this.channelSlug = options.channelSlug;
+    this.client = createClient(options.channelSlug, { logger: options.logger !== false });
+    this._running = false;
   }
 
   async start() {
-    if (!this.wsUrl) {
-      console.error("KickAdapter: no wsUrl provided, skipping connection");
-      return;
-    }
-
-    this.shouldReconnect = true;
+    const credentials = {
+      username: process.env.KICK_BOT_USER,
+      password: process.env.KICK_BOT_PASS,
+      otp_secret: process.env.KICK_BOT_OTP
+    };
 
     try {
-      this.ws = new WebSocket(this.wsUrl);
+      await this.client.login({ type: "login", credentials });
     } catch (err) {
-      console.error("KickAdapter: WebSocket construction failed:", err.message);
-      return;
+      throw new Error(`KickAdapter: login failed: ${err.message}`);
     }
 
-    this.ws.on("open", () => {
-      console.log(`KickAdapter: connected to ${this.wsUrl}`);
+    this._running = true;
+
+    this.client.on("ready", () => {
+      console.log("KickAdapter: bot connected");
     });
 
-    this.ws.on("message", async (raw) => {
+    this.client.on("ChatMessage", async (message) => {
+      if (!this._running) return;
+
+      if (!message || !message.sender || !message.content) return;
+
+      if (message.sender.username === process.env.KICK_BOT_USER) return;
+
       try {
-        const parsed = JSON.parse(raw.toString());
-
-        if (parsed.type !== "message") return;
-
-        const data = parsed.data;
-        if (!data || !data.sender || !data.content) return;
-
-        const normalized = {
+        const rawEvent = {
           platform: "kick",
           user: {
-            id: String(data.sender.id || ""),
-            name: String(data.sender.username || "unknown")
+            id: message.sender.id,
+            name: message.sender.username
           },
-          content: String(data.content),
+          content: message.content,
           metadata: {
-            channel: String(data.channel || this.channel)
+            channel: message.channel,
+            messageId: message.id
           },
           timestamp: Date.now()
         };
 
+        const normalized = normalizeEvent(rawEvent);
         const result = await this.orchestrator.handleEvent(normalized);
 
-        const replyText = result && result.text ? result.text : "";
-        if (replyText.length > 0 && this.ws && this.ws.readyState === WebSocket.OPEN) {
-          this.ws.send(JSON.stringify({
-            action: "sendMessage",
-            data: {
-              channel: this.channel,
-              content: replyText
-            }
-          }));
+        const replyText = result && result.text ? result.text.trim() : "";
+        if (replyText) {
+          await this.client.sendMessage(replyText);
         }
       } catch (err) {
-        console.error("KickAdapter: message handler error:", err.message);
+        console.error("KickAdapter: ChatMessage handler error:", err.message);
       }
-    });
-
-    this.ws.on("close", () => {
-      console.log("KickAdapter: connection closed");
-      if (this.shouldReconnect) {
-        console.log(`KickAdapter: reconnecting in ${this.reconnectDelay}ms`);
-        setTimeout(() => {
-          if (this.shouldReconnect) this.start();
-        }, this.reconnectDelay);
-      }
-    });
-
-    this.ws.on("error", (err) => {
-      console.error("KickAdapter: WebSocket error:", err.message);
     });
   }
 
   stop() {
-    this.shouldReconnect = false;
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
+    this._running = false;
+    if (this.client && typeof this.client.disconnect === "function") {
+      try {
+        this.client.disconnect();
+      } catch {
+        // ignore
+      }
     }
   }
 }
