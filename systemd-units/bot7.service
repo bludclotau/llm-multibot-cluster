@@ -1,0 +1,14 @@
+[Unit]
+Description=Discord Bot 4
+After=network.target
+
+[Service]
+WorkingDirectory=/home/snerloc/discord-bots/bot7
+ExecStart=/usr/bin/node bot.js
+Restart=always
+RestartSec=5
+# Optional: stricter resource limits if you want
+# LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

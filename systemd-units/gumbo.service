@@ -1,0 +1,17 @@
+[Unit]
+Description=gumbo Discord Bot
+After=network.target
+
+[Service]
+Type=simple
+User=snerloc
+WorkingDirectory=/home/snerloc/discord-bots/gumbo
+Environment=PERSONA_FILE=/home/snerloc/discord-bots/gumbo/personas/gumbo.txt
+Environment=LLM_MODEL=llama-3.2-3b-uncensored
+Environment=ALLOWED_CHANNELS=1503348313397923871
+ExecStart=/usr/bin/node /home/snerloc/discord-bots/shared/bot.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

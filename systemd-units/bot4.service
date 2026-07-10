@@ -1,0 +1,13 @@
+[Unit]
+Description=Discord Bot 4
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/home/snerloc/discord-bots/bot4
+ExecStart=/usr/bin/node bot.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
