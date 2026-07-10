@@ -309,6 +309,7 @@ client.on("messageCreate", async (msg) => {
   }
 
   const botWasMentioned = msg.mentions.has(client.user.id);
+  console.log(`[${BOT_NAME}] handling msg.id=${msg.id} author=${msg.author.username} mentioned=${botWasMentioned} at ${new Date().toISOString()}`);
   const isCommand = msg.content.startsWith("!mode") || msg.content.startsWith("!summon");
 
   if (LLM_HEALTH === "CRITICAL" && !botWasMentioned && !isCommand) {
@@ -373,6 +374,7 @@ async function generateAndSendReply(msg, wasMentioned, priority) {
 
       addToHistory(msg.channel.id, "assistant", reply);
       await simulateTyping(msg, reply);
+      console.log(`[${BOT_NAME}] SENDING reply for msg.id=${msg.id} at ${new Date().toISOString()}`);
       msg.reply(reply.slice(0, 1900));
 
       consecutiveFailures = 0;
