@@ -320,16 +320,7 @@ client.on("messageCreate", async (msg) => {
     return;
   }
 
-  if (botWasMentioned) {
-    // always respond when directly mentioned — bypass cooldown
-  } else if (msg.author.bot) {
-    if (!ALLOW_BOT_MESSAGES) return;
-    if (!isOffCooldown("bot")) return;
-    if (!shouldRespond(0.2)) return;
-  } else {
-    if (!isOffCooldown("human")) return;
-    if (!shouldRespond(0.3)) return;
-  }
+  if (!botWasMentioned) return; // only reply when explicitly @mentioned
 
   const trigger = detectTrigger(msg.content);
   if (trigger) emotion.applyTrigger(trigger);

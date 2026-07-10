@@ -17,9 +17,7 @@ const ALLOWED_CHANNEL = "1508904233297121461";
 const LLM_TIMEOUT_MS = 240000;
 
 // Chatty behaviour
-const NORMAL_COOLDOWN_MS = 2000;      // 2 seconds
 const MENTION_COOLDOWN_MS = 1000;     // 1 second
-const RANDOM_REPLY_CHANCE = 0.75;     // 75% chance to reply normally
 const SPAM_IGNORE_MS = 8000;          // anti-spam window
 
 // Memory
@@ -203,20 +201,6 @@ client.on("messageCreate", async (msg) => {
     raw.includes("lyla");
 
   // -------------------------
-  // Reply detection
-  // -------------------------
-  let isReplyToBot = false;
-
-  if (msg.reference && msg.reference.messageId) {
-    try {
-      const replied = await msg.channel.messages.fetch(msg.reference.messageId);
-      if (replied.author.id === botId) {
-        isReplyToBot = true;
-      }
-    } catch {}
-  }
-
-  // -------------------------
   // Anti-spam
   // -------------------------
   if (isMention) {
@@ -237,18 +221,10 @@ client.on("messageCreate", async (msg) => {
   // -------------------------
   // Cooldown logic
   // -------------------------
+  if (!isMention) return; // only reply when explicitly @mentioned ("lyla" or Discord ping)
+
   const timeSinceLast = now - lastReplyTime;
-  let allowed = false;
-
-  if (isMention) {
-    allowed = timeSinceLast > MENTION_COOLDOWN_MS;
-  } else if (isReplyToBot) {
-    allowed = true;
-  } else if (timeSinceLast > NORMAL_COOLDOWN_MS) {
-    allowed = Math.random() < RANDOM_REPLY_CHANCE;
-  }
-
-  if (!allowed) return;
+  if (timeSinceLast <= MENTION_COOLDOWN_MS) return;
 
   const trigger = detectTrigger(msg.content);
   if (trigger) emotion.applyTrigger(trigger);

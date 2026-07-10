@@ -14,9 +14,9 @@ class KickAdapter {
 
   async start() {
     const credentials = {
-      username: process.env.KICK_BOT_USER,
-      password: process.env.KICK_BOT_PASS,
-      otp_secret: process.env.KICK_BOT_OTP
+      username: process.env.KICK_WENDY_USER,
+      password: process.env.KICK_WENDY_PASS,
+      otp_secret: process.env.KICK_WENDY_OTP
     };
 
     try {
@@ -36,7 +36,7 @@ class KickAdapter {
 
       if (!message || !message.sender || !message.content) return;
 
-      if (message.sender.username === process.env.KICK_BOT_USER) return;
+      if (message.sender.username.toLowerCase() === (process.env.KICK_WENDY_USER || "").toLowerCase()) return;
 
       try {
         const rawEvent = {
