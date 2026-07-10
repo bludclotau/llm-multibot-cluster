@@ -355,42 +355,58 @@ async function generateAndSendReply(msg, wasMentioned, priority) {
     ...conversationHistory[msg.channel.id]
   ];
 
+  async function callOnce() {
+    const startTime = Date.now();
+    const response = await axios.post(
+      "http://localhost:11434/v1/chat/completions",
+      { model: MODEL, messages },
+      { headers: { "Content-Type": "application/json" }, timeout: LLM_TIMEOUT_MS }
+    );
+    const elapsed = Date.now() - startTime;
+    updateHealth(elapsed);
+
+    const reply = (response.data.choices[0]?.message?.content || "").trim();
+    if (!reply) {
+      msg.reply("I received an empty response from the model.");
+      return;
+    }
+
+    addToHistory(msg.channel.id, "assistant", reply);
+    await simulateTyping(msg, reply);
+    console.log(`[${BOT_NAME}] SENDING reply for msg.id=${msg.id} at ${new Date().toISOString()}`);
+    msg.reply(reply.slice(0, 1900));
+
+    consecutiveFailures = 0;
+    lastGlobalRequestTime = Date.now();
+
+    if (msg.author.bot) {
+      lastBotReplyTimestamp = Date.now();
+    } else {
+      lastReplyTimestamp = Date.now();
+    }
+  }
+
   try {
     await enqueueRequest(async () => {
-      const startTime = Date.now();
-      const response = await axios.post(
-        "http://localhost:11434/v1/chat/completions",
-        { model: MODEL, messages },
-        { headers: { "Content-Type": "application/json" }, timeout: LLM_TIMEOUT_MS }
-      );
-      const elapsed = Date.now() - startTime;
-      updateHealth(elapsed);
+      try {
+        await callOnce();
+      } catch (err) {
+        const isBackoffError = err.code === "ECONNRESET" || (err.response && err.response.status === 500);
+        if (!isBackoffError) throw err;
 
-      const reply = (response.data.choices[0]?.message?.content || "").trim();
-      if (!reply) {
-        msg.reply("I received an empty response from the model.");
-        return;
-      }
-
-      addToHistory(msg.channel.id, "assistant", reply);
-      await simulateTyping(msg, reply);
-      console.log(`[${BOT_NAME}] SENDING reply for msg.id=${msg.id} at ${new Date().toISOString()}`);
-      msg.reply(reply.slice(0, 1900));
-
-      consecutiveFailures = 0;
-      lastGlobalRequestTime = Date.now();
-
-      if (msg.author.bot) {
-        lastBotReplyTimestamp = Date.now();
-      } else {
-        lastReplyTimestamp = Date.now();
+        console.log("LLM error (500/ECONNRESET), retrying once");
+        await new Promise(r => setTimeout(r, 1500));
+        try {
+          await callOnce();
+        } catch (retryErr) {
+          console.log("LLM retry also failed, notifying channel");
+          msg.reply("Having trouble thinking right now — try again in a moment.");
+          throw retryErr;
+        }
       }
     }, priority);
   } catch (err) {
-    const isBackoffError = err.code === "ECONNRESET" || (err.response && err.response.status === 500);
-    if (isBackoffError) {
-      console.log("LLM error (500/ECONNRESET), backing off");
-    } else if (err.message === "queue timeout") {
+    if (err.message === "queue timeout") {
       console.log("queue timeout: skipped");
       return;
     } else if (err.message === "queue overflow: dropped low-priority request") {
