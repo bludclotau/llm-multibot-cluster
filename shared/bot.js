@@ -1,11 +1,10 @@
 require("dotenv").config();
 const fs = require("fs");
-const http = require("http");
 const { Client, GatewayIntentBits } = require("discord.js");
-const axios = require("axios");
 const buildPersonaDepth = require("./persona-depth");
 const EmotionalState = require("./emotional-state");
 const RelationshipEngine = require("./relationship-engine");
+const { dolphinInfer, buildPrompt: buildDolphinPrompt } = require("./dolphin");
 
 const client = new Client({
   intents: [
@@ -16,7 +15,6 @@ const client = new Client({
 });
 
 const TOKEN = process.env.DISCORD_TOKEN;
-const MODEL = process.env.LLM_MODEL || "llama-3.2-3b-uncensored";
 const ALLOWED_CHANNELS_ENV = process.env.ALLOWED_CHANNELS || "1504023730387423284";
 const ALLOW_BOT_MESSAGES = process.env.ALLOW_BOT_MESSAGES === "true";
 const BOT_NAME = process.env.BOT_NAME || "unknown";
@@ -215,17 +213,6 @@ function detectTrigger(message) {
   return null;
 }
 
-function emotionalRouting(emotion) {
-  if (emotion.state === "stressed" || emotion.state === "concerned") {
-    return "http://127.0.0.1:11434";
-  }
-
-  if (emotion.state === "excited" || emotion.state === "chaotic") {
-    return "http://10.1.1.122:8080";
-  }
-
-  return null;
-}
 
 function simulateTyping(msg, text) {
   const typingTime = Math.min(5000, Math.max(500, text.length * 30));
@@ -351,26 +338,16 @@ async function generateAndSendReply(msg, wasMentioned, priority) {
     relationshipState = relationships.describe(msg.author.username);
   }
 
-  const messages = [
-    { role: "system", content: buildPrompt(msg.author.username, wasMentioned, relationshipState) },
-    ...conversationHistory[msg.channel.id]
-  ];
-
   async function callOnce() {
     const startTime = Date.now();
-    const response = await axios.post(
-      "http://localhost:11434/v1/chat/completions",
-      { model: MODEL, messages },
-      {
-        headers: { "Content-Type": "application/json" },
-        timeout: LLM_TIMEOUT_MS,
-        httpAgent: new http.Agent({ keepAlive: false }),
-      }
+    const flatPrompt = buildDolphinPrompt(
+      buildPrompt(msg.author.username, wasMentioned, relationshipState),
+      conversationHistory[msg.channel.id],
+      null
     );
+    const reply = await dolphinInfer(flatPrompt, 256, LLM_TIMEOUT_MS);
     const elapsed = Date.now() - startTime;
     updateHealth(elapsed);
-
-    const reply = (response.data.choices[0]?.message?.content || "").trim();
     if (!reply) {
       msg.reply("I received an empty response from the model.");
       return;

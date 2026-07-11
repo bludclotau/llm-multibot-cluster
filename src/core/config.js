@@ -1,4 +1,4 @@
-const nodes = [
+export const nodes = [
   {
     id: "nodeA",
     url: "http://10.1.1.7:8080",
@@ -15,7 +15,7 @@ const nodes = [
   }
 ];
 
-const routerOptions = {
+export const routerOptions = {
   maxSlotsPerNode: 1,
   ewmaAlpha: 0.3,
   failureThreshold: 3,
@@ -23,5 +23,3 @@ const routerOptions = {
   requestTimeoutMs: 60000,
   busyPenaltyMs: 5000
 };
-
-module.exports = { nodes, routerOptions };

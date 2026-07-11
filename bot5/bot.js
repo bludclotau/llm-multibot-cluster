@@ -33,12 +33,11 @@ function acquireSingleInstanceLock() {
 acquireSingleInstanceLock();
 
 const { Client, GatewayIntentBits } = require("discord.js");
-const axios = require("axios");
-const { acquireLock, releaseLock } = require("../shared/llm-lock");
 const { enqueue } = require("../shared/llm-queue");
 const buildPersonaDepth = require("../shared/persona-depth");
 const EmotionalState = require("../shared/emotional-state");
 const RelationshipEngine = require("../shared/relationship-engine");
+const { dolphinInfer } = require("../shared/dolphin");
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const ALLOWED_CHANNELS = [
@@ -170,40 +169,7 @@ const client = new Client({
 // LLM Request Wrapper
 // -------------------------
 async function askLLM(prompt) {
-  const res = await axios.post(
-    "http://127.0.0.1:3005/ask",
-    { bot: "Tabatha", prompt },
-    { timeout: 260000 }
-  );
-
-  return res.data?.reply || "";
-}
-
-// OLD DIRECT LLM BELOW (unused)
-async function askLLM_direct(prompt) {
-  const gotLock = await acquireLock();
-  if (!gotLock) {
-    throw new Error("LLM lock timeout");
-  }
-
-  try {
-    const res = await axios.post(
-      "http://127.0.0.1:11434/v1/chat/completions",
-      {
-        model: "llama-3.2-3b-uncensored.gguf",
-        messages: [{ role: "user", content: prompt }],
-      },
-      { timeout: LLM_TIMEOUT_MS }
-    );
-
-    if (!res.data || !res.data.choices || !res.data.choices[0]) {
-      throw new Error("Invalid LLM response");
-    }
-
-    return res.data.choices[0].message.content;
-  } finally {
-    await releaseLock();
-  }
+  return dolphinInfer(prompt, 256, LLM_TIMEOUT_MS);
 }
 
 // -------------------------
@@ -247,6 +213,8 @@ ${recentMemory.join("\n")}
 
 User message:
 ${msg.content}
+
+[Assistant]
 `.trim();
 
   try {
