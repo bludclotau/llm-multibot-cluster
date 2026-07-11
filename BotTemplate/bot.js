@@ -121,7 +121,7 @@ async function askLLM(prompt) {
     const res = await axios.post(
       "http://127.0.0.1:11434/v1/chat/completions",
       {
-        model: "llama-3.2-3b-uncensored.gguf",
+        model: "dolphin-2.8-mistral-7b-v02.gguf",
         messages: [{ role: "user", content: prompt }],
       },
       { timeout: LLM_TIMEOUT_MS }

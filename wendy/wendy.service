@@ -7,7 +7,7 @@ Type=simple
 User=snerloc
 WorkingDirectory=/home/snerloc/discord-bots/wendy
 Environment=PERSONA_FILE=/home/snerloc/discord-bots/wendy/personas/wendy.txt
-Environment=LLM_MODEL=llama-3.2-3b-uncensored
+Environment=LLM_MODEL=dolphin-2.8-mistral-7b-v02
 Environment=ALLOWED_CHANNELS=1503348313397923871,1503348313397923872,1504438057103790120
 Environment=ALLOW_BOT_MESSAGES=true
 Environment=BOT_NAME=wendy

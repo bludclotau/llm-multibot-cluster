@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=snerloc
 ExecStart=/opt/llama.cpp/build/bin/llama-server \
-  --model /opt/models/llama-3.2-3b-uncensored.gguf \
+  --model /opt/models/dolphin-2.8-mistral-7b-v02.Q4_K_M.gguf \
   --port 11434 \
   --threads 8 \
   --parallel 2 \

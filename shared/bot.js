@@ -14,6 +14,7 @@ const client = new Client({
   ]
 });
 
+const MODEL = process.env.LLM_MODEL || "dolphin-2.8-mistral-7b-v02";
 const TOKEN = process.env.DISCORD_TOKEN;
 const ALLOWED_CHANNELS_ENV = process.env.ALLOWED_CHANNELS || "1504023730387423284";
 const ALLOW_BOT_MESSAGES = process.env.ALLOW_BOT_MESSAGES === "true";

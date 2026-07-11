@@ -99,7 +99,7 @@ async function processNext() {
     await new Promise(r => setTimeout(r, HUMAN_DELAY_BEFORE_MS));
 
     const payload = {
-      model: "Llama-3.2-1B-Instruct-Uncensored.Q4_K_M.gguf",
+      model: "dolphin-2.8-mistral-7b-v02.Q4_K_M.gguf",
       messages: [{ role: "user", content: job.prompt }]
     };
     const data = await callLLM(payload);
