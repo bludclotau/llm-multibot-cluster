@@ -1,5 +1,6 @@
 require("dotenv").config();
 const fs = require("fs");
+const http = require("http");
 const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
 const buildPersonaDepth = require("./persona-depth");
@@ -360,7 +361,11 @@ async function generateAndSendReply(msg, wasMentioned, priority) {
     const response = await axios.post(
       "http://localhost:11434/v1/chat/completions",
       { model: MODEL, messages },
-      { headers: { "Content-Type": "application/json" }, timeout: LLM_TIMEOUT_MS }
+      {
+        headers: { "Content-Type": "application/json" },
+        timeout: LLM_TIMEOUT_MS,
+        httpAgent: new http.Agent({ keepAlive: false }),
+      }
     );
     const elapsed = Date.now() - startTime;
     updateHealth(elapsed);
@@ -400,6 +405,7 @@ async function generateAndSendReply(msg, wasMentioned, priority) {
           await callOnce();
         } catch (retryErr) {
           console.log("LLM retry also failed, notifying channel");
+          console.log(`[${BOT_NAME}] SENDING retry-failure-reply for msg.id=${msg.id} at ${new Date().toISOString()}`);
           msg.reply("Having trouble thinking right now — try again in a moment.");
           throw retryErr;
         }
@@ -413,6 +419,7 @@ async function generateAndSendReply(msg, wasMentioned, priority) {
       return;
     } else {
       console.error(err);
+      console.log(`[${BOT_NAME}] SENDING error-reply for msg.id=${msg.id} at ${new Date().toISOString()}`);
       msg.reply("Error contacting local LLM.");
     }
   }
