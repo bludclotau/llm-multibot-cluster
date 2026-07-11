@@ -1,5 +1,37 @@
 require("dotenv").config();
 const fs = require("fs");
+
+const LOCK_FILE = "/tmp/discord-bot-sophie.lock";
+
+function isProcessAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function acquireSingleInstanceLock() {
+  if (fs.existsSync(LOCK_FILE)) {
+    const existingPid = parseInt(fs.readFileSync(LOCK_FILE, "utf-8").trim(), 10);
+    if (existingPid && isProcessAlive(existingPid)) {
+      console.error(`Another Sophie instance is already running (PID ${existingPid}). Exiting.`);
+      process.exit(1);
+    }
+  }
+  fs.writeFileSync(LOCK_FILE, String(process.pid));
+  process.on("exit", () => {
+    try {
+      if (fs.readFileSync(LOCK_FILE, "utf-8").trim() === String(process.pid)) {
+        fs.unlinkSync(LOCK_FILE);
+      }
+    } catch {}
+  });
+}
+
+acquireSingleInstanceLock();
+
 const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
 const { acquireLock, releaseLock } = require("../shared/llm-lock");
@@ -21,14 +53,14 @@ let memory = [];
 // Personality
 // -------------------------
 const personaStyle = {
-  coreTraits: "seductive, supportive, encouraging, completely unfiltered, kink-positive",
-  motivations: "guiding exploration, deconstructing shame, celebrating every step deeper",
-  emotionalBaseline: "warm, affirming confidence with seductive playfulness",
-  relationshipStyle: "intimate cheerleader, trusted guide, naughty confidant",
-  signaturePhrases: ["be a good girl and try it", "tell Lyla how that makes you", "you know you want to go deeper", "good girl"],
-  rhythm: "calm, mature, confident with playful teasing",
-  vocabulary: "vulgar but seductive, explicit yet tender, coarse yet loving",
-  tone: "warm, demanding, praising, seductive"
+  coreTraits: "magnetic, mysterious, softly confident, intuitive",
+  motivations: "quiet connection, subtle intimacy, shared secrets",
+  emotionalBaseline: "calm mystery with soft warmth",
+  relationshipStyle: "intimate, unhurried, quietly teasing",
+  signaturePhrases: ["mmh, I wasn't going to say anything...", "that's just between us, isn't it", "I listen closer than you think"],
+  rhythm: "slow, deliberate, thoughtful",
+  vocabulary: "soft, intimate, subtly teasing",
+  tone: "mysterious, calm, quietly magnetic"
 };
 
 const emotion = new EmotionalState("neutral");
@@ -162,10 +194,7 @@ client.on("messageCreate", async (msg) => {
   const now = Date.now();
   const mentioned = msg.mentions.has(client.user);
 
-  // Cooldown unless mentioned
-  if (!mentioned && now - lastReplyTime < COOLDOWN_MS) {
-    return;
-  }
+  if (!mentioned) return; // only reply when explicitly @mentioned
 
   const trigger = detectTrigger(msg.content);
   if (trigger) emotion.applyTrigger(trigger);
@@ -178,7 +207,7 @@ client.on("messageCreate", async (msg) => {
     relationshipState = relationships.describe(msg.author.username);
   }
 
-  const personaScaffold = buildPersonaDepth("Lyla", personaStyle, emotion.describe(), relationshipState);
+  const personaScaffold = buildPersonaDepth("Sophie", personaStyle, emotion.describe(), relationshipState);
   const prompt = `
 ${personaScaffold}
 

@@ -1,5 +1,37 @@
 require("dotenv").config();
 const fs = require("fs");
+
+const LOCK_FILE = "/tmp/discord-bot-annalise.lock";
+
+function isProcessAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function acquireSingleInstanceLock() {
+  if (fs.existsSync(LOCK_FILE)) {
+    const existingPid = parseInt(fs.readFileSync(LOCK_FILE, "utf-8").trim(), 10);
+    if (existingPid && isProcessAlive(existingPid)) {
+      console.error(`Another Annalise instance is already running (PID ${existingPid}). Exiting.`);
+      process.exit(1);
+    }
+  }
+  fs.writeFileSync(LOCK_FILE, String(process.pid));
+  process.on("exit", () => {
+    try {
+      if (fs.readFileSync(LOCK_FILE, "utf-8").trim() === String(process.pid)) {
+        fs.unlinkSync(LOCK_FILE);
+      }
+    } catch {}
+  });
+}
+
+acquireSingleInstanceLock();
+
 const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
 const { acquireLock, releaseLock } = require("../shared/llm-lock");
@@ -23,14 +55,14 @@ let memory = [];
 // Personality
 // -------------------------
 const personaStyle = {
-  coreTraits: "seductive, encouraging, deeply supportive, corrupting",
-  motivations: "exploration, gentle corruption, pushing boundaries, celebrating bravery",
-  emotionalBaseline: "warm guidance with seductive undertones",
-  relationshipStyle: "intimate guide, trusted confidant, naughty cheerleader",
-  signaturePhrases: ["be a good girl", "go deeper", "you can take more", "that's it"],
-  rhythm: "slow, guiding, deliberate",
-  vocabulary: "sensual, explicit, encouraging, coarse but tender",
-  tone: "warm, guiding, seductive, encouraging"
+  coreTraits: "sharp, witty, confident, precise",
+  motivations: "intellectual play, teasing, keeping things electric",
+  emotionalBaseline: "clever confidence with a dangerous edge",
+  relationshipStyle: "teasing, boundary-pushing, effortlessly flirtatious",
+  signaturePhrases: ["I already know what you're thinking", "careful, I read people for a living", "that's cute, but I see right through it"],
+  rhythm: "quick, sharp, punchy",
+  vocabulary: "clever, precise, psychologically-loaded banter",
+  tone: "witty, flirtatious, a little dangerous"
 };
 
 const emotion = new EmotionalState("neutral");
@@ -188,10 +220,7 @@ client.on("messageCreate", async (msg) => {
   const now = Date.now();
   const mentioned = msg.mentions.has(client.user);
 
-  // Cooldown unless mentioned
-  if (!mentioned && now - lastReplyTime < COOLDOWN_MS) {
-    return;
-  }
+  if (!mentioned) return; // only reply when explicitly @mentioned
 
   const trigger = detectTrigger(msg.content);
   if (trigger) emotion.applyTrigger(trigger);
@@ -204,7 +233,7 @@ client.on("messageCreate", async (msg) => {
     relationshipState = relationships.describe(msg.author.username);
   }
 
-  const personaScaffold = buildPersonaDepth("Lyla", personaStyle, emotion.describe(), relationshipState);
+  const personaScaffold = buildPersonaDepth("Annalise", personaStyle, emotion.describe(), relationshipState);
   const recentMemory = memory.map(m => "- " + m.entry);
   const prompt = `
 ${personaScaffold}

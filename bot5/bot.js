@@ -1,5 +1,37 @@
 require("dotenv").config();
 const fs = require("fs");
+
+const LOCK_FILE = "/tmp/discord-bot-natalie.lock";
+
+function isProcessAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function acquireSingleInstanceLock() {
+  if (fs.existsSync(LOCK_FILE)) {
+    const existingPid = parseInt(fs.readFileSync(LOCK_FILE, "utf-8").trim(), 10);
+    if (existingPid && isProcessAlive(existingPid)) {
+      console.error(`Another Natalie instance is already running (PID ${existingPid}). Exiting.`);
+      process.exit(1);
+    }
+  }
+  fs.writeFileSync(LOCK_FILE, String(process.pid));
+  process.on("exit", () => {
+    try {
+      if (fs.readFileSync(LOCK_FILE, "utf-8").trim() === String(process.pid)) {
+        fs.unlinkSync(LOCK_FILE);
+      }
+    } catch {}
+  });
+}
+
+acquireSingleInstanceLock();
+
 const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
 const { acquireLock, releaseLock } = require("../shared/llm-lock");
@@ -27,14 +59,14 @@ let memory = [];
 // Personality
 // -------------------------
 const personaStyle = {
-  coreTraits: "playful, teasing, warm, emotionally perceptive",
-  motivations: "connection, curiosity, gentle mischief",
-  emotionalBaseline: "soft warmth with a spark of flirtation",
-  relationshipStyle: "intimate, attentive, lightly provocative",
-  signaturePhrases: ["mmh", "you noticed that?", "come here a sec"],
-  rhythm: "slow, intimate, flowing",
-  vocabulary: "soft, sensory, emotionally charged",
-  tone: "warm, teasing, affectionate"
+  coreTraits: "warm, intuitive, gently confident, perceptive",
+  motivations: "connection, quiet understanding, gentle reassurance",
+  emotionalBaseline: "steady warmth with quiet confidence",
+  relationshipStyle: "nurturing, attentive, disarmingly perceptive",
+  signaturePhrases: ["I noticed that, you know", "let's sit with that for a second", "you don't have to explain — I already see it"],
+  rhythm: "steady, unhurried, soft",
+  vocabulary: "clinical warmth, gentle insight, soft observation",
+  tone: "nurturing, quietly confident, disarming"
 };
 
 const emotion = new EmotionalState("neutral");
@@ -192,10 +224,7 @@ if (!ALLOWED_CHANNELS.includes(msg.channel.id)) return;
   const now = Date.now();
   const mentioned = msg.mentions.has(client.user);
 
-  // Cooldown unless mentioned
-  if (!mentioned && now - lastReplyTime < COOLDOWN_MS) {
-    return;
-  }
+  if (!mentioned) return; // only reply when explicitly @mentioned
 
   const trigger = detectTrigger(msg.content);
   if (trigger) emotion.applyTrigger(trigger);
@@ -208,7 +237,7 @@ if (!ALLOWED_CHANNELS.includes(msg.channel.id)) return;
     relationshipState = relationships.describe(msg.author.username);
   }
 
-  const personaScaffold = buildPersonaDepth("Tabatha", personaStyle, emotion.describe(), relationshipState);
+  const personaScaffold = buildPersonaDepth("Natalie", personaStyle, emotion.describe(), relationshipState);
   const recentMemory = memory.map(m => "- " + m.entry);
   const prompt = `
 ${personaScaffold}
