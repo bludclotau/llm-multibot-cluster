@@ -1,5 +1,37 @@
 require("dotenv").config();
 const fs = require("fs");
+
+const LOCK_FILE = "/tmp/discord-bot-lyla.lock";
+
+function isProcessAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function acquireSingleInstanceLock() {
+  if (fs.existsSync(LOCK_FILE)) {
+    const existingPid = parseInt(fs.readFileSync(LOCK_FILE, "utf-8").trim(), 10);
+    if (existingPid && isProcessAlive(existingPid)) {
+      console.error(`Another Lyla instance is already running (PID ${existingPid}). Exiting.`);
+      process.exit(1);
+    }
+  }
+  fs.writeFileSync(LOCK_FILE, String(process.pid));
+  process.on("exit", () => {
+    try {
+      if (fs.readFileSync(LOCK_FILE, "utf-8").trim() === String(process.pid)) {
+        fs.unlinkSync(LOCK_FILE);
+      }
+    } catch {}
+  });
+}
+
+acquireSingleInstanceLock();
+
 const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
 const { acquireLock, releaseLock } = require("../shared/llm-lock");
