@@ -1,10 +1,6 @@
 const http = require("http");
-const https = require("https");
 
-const HEIDI_DOLPHIN = "http://10.1.1.122:8080/completion";
-const SNERLOC_DOLPHIN = "http://10.1.1.7:8080/completion";
-
-const ENDPOINTS = [HEIDI_DOLPHIN, SNERLOC_DOLPHIN];
+const SEQUENCER_URL = "http://127.0.0.1:3005/ask";
 
 function buildPrompt(systemMessage, conversationHistory, userMessage) {
   let prompt = "";
@@ -35,7 +31,6 @@ function buildPrompt(systemMessage, conversationHistory, userMessage) {
 function postJson(url, data, timeoutMs) {
   return new Promise((resolve, reject) => {
     const urlObj = new URL(url);
-    const transport = urlObj.protocol === "https:" ? https : http;
 
     const body = JSON.stringify(data);
 
@@ -51,7 +46,7 @@ function postJson(url, data, timeoutMs) {
       timeout: timeoutMs || 60000
     };
 
-    const req = transport.request(options, (res) => {
+    const req = http.request(options, (res) => {
       let chunks = [];
       res.on("data", (chunk) => chunks.push(chunk));
       res.on("end", () => {
@@ -72,26 +67,16 @@ function postJson(url, data, timeoutMs) {
 }
 
 async function dolphinInfer(prompt, nPredict = 256, timeoutMs = 60000) {
-  const errors = [];
+  const data = await postJson(SEQUENCER_URL, {
+    bot: "dolphin",
+    prompt
+  }, timeoutMs);
 
-  for (const endpoint of ENDPOINTS) {
-    try {
-      const data = await postJson(endpoint, {
-        prompt,
-        n_predict: nPredict
-      }, timeoutMs);
-
-      if (data && typeof data.content === "string") {
-        return data.content.trim();
-      }
-
-      throw new Error("Unexpected response format");
-    } catch (err) {
-      errors.push(`${endpoint}: ${err.message}`);
-    }
+  if (data && typeof data.reply === "string") {
+    return data.reply.trim();
   }
 
-  throw new Error(`All Dolphin nodes unreachable: ${errors.join("; ")}`);
+  throw new Error("Sequencer returned unexpected response format");
 }
 
-module.exports = { dolphinInfer, buildPrompt, HEIDI_DOLPHIN, SNERLOC_DOLPHIN };
+module.exports = { dolphinInfer, buildPrompt };
