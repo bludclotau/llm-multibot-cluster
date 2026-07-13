@@ -14,11 +14,41 @@ const client = new Client({
   ]
 });
 
-const MODEL = process.env.LLM_MODEL || "dolphin-2.8-mistral-7b-v02";
 const TOKEN = process.env.DISCORD_TOKEN;
 const ALLOWED_CHANNELS_ENV = process.env.ALLOWED_CHANNELS || "1504023730387423284";
 const ALLOW_BOT_MESSAGES = process.env.ALLOW_BOT_MESSAGES === "true";
 const BOT_NAME = process.env.BOT_NAME || "unknown";
+
+const LOCK_FILE = `/tmp/discord-bot-${BOT_NAME}.lock`;
+
+function isProcessAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function acquireSingleInstanceLock() {
+  if (fs.existsSync(LOCK_FILE)) {
+    const existingPid = parseInt(fs.readFileSync(LOCK_FILE, "utf-8").trim(), 10);
+    if (existingPid && isProcessAlive(existingPid)) {
+      console.error(`Another ${BOT_NAME} instance is already running (PID ${existingPid}). Exiting.`);
+      process.exit(1);
+    }
+  }
+  fs.writeFileSync(LOCK_FILE, String(process.pid));
+  process.on("exit", () => {
+    try {
+      if (fs.readFileSync(LOCK_FILE, "utf-8").trim() === String(process.pid)) {
+        fs.unlinkSync(LOCK_FILE);
+      }
+    } catch {}
+  });
+}
+
+acquireSingleInstanceLock();
 const HUMAN_COOLDOWN_MS = 4000;
 const BOT_COOLDOWN_MS = 10000;
 const MAX_HISTORY = 3;
