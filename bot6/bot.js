@@ -39,7 +39,7 @@ const RelationshipEngine = require("../shared/relationship-engine");
 const { dolphinInfer } = require("../shared/dolphin");
 
 const TOKEN = process.env.DISCORD_TOKEN;
-const ALLOWED_CHANNEL = "1508904233297121461";
+const ALLOWED_CHANNEL = "1503348313397923871";
 
 const LLM_TIMEOUT_MS = 180000;
 const COOLDOWN_MS = 30000; // 30s cooldown unless mentioned

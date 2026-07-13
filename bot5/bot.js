@@ -41,8 +41,7 @@ const { dolphinInfer } = require("../shared/dolphin");
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const ALLOWED_CHANNELS = [
-  "1503348313397923871",
-  "1504438057103790120"
+  "1503348313397923871"
 ];
 
 const LLM_TIMEOUT_MS = 180000;
