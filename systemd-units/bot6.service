@@ -1,9 +1,10 @@
 [Unit]
-Description=Discord Bot 6
-After=network-online.target
-Wants=network-online.target
+Description=Annalise Discord Bot
+After=network.target
 
 [Service]
+Type=simple
+User=snerloc
 WorkingDirectory=/home/snerloc/discord-bots/bot6
 ExecStart=/usr/bin/node bot.js
 Restart=always

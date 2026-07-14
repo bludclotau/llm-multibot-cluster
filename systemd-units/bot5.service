@@ -1,9 +1,10 @@
 [Unit]
-Description=Discord Bot 5
-After=network-online.target
-Wants=network-online.target
+Description=Natalie Discord Bot
+After=network.target
 
 [Service]
+Type=simple
+User=snerloc
 WorkingDirectory=/home/snerloc/discord-bots/bot5
 ExecStart=/usr/bin/node bot.js
 Restart=always

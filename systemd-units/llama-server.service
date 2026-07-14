@@ -1,0 +1,20 @@
+[Unit]
+Description=llama-server LLM Inference
+After=network.target
+
+[Service]
+Type=simple
+User=snerloc
+ExecStart=/opt/llama.cpp/build/bin/llama-server \
+  --model /opt/models/dolphin-2.8-mistral-7b-v02-Q4_K_M.gguf \
+  --port 11434 \
+  --threads 8 \
+  --parallel 2 \
+  --cont-batching \
+  --ctx-size 8192 \
+  --temp 0.7
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

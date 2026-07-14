@@ -1,9 +1,10 @@
 [Unit]
-Description=Discord Bot 4
-After=network-online.target
-Wants=network-online.target
+Description=Lyla Discord Bot
+After=network.target
 
 [Service]
+Type=simple
+User=snerloc
 WorkingDirectory=/home/snerloc/discord-bots/bot4
 ExecStart=/usr/bin/node bot.js
 Restart=always

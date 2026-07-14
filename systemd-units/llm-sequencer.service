@@ -1,0 +1,15 @@
+[Unit]
+Description=LLM Sequencer Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/home/snerloc/discord-bots/llm-sequencer
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=5
+User=snerloc
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
