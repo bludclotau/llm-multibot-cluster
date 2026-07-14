@@ -17,7 +17,7 @@ const ALPHA = 0.3;
 
 const LLM_NODES = [
   { url: "http://127.0.0.1:11434", name: "main", latency: 200, healthy: true },
-  { url: "http://10.1.1.122:8080", name: "hunsun", latency: 600, healthy: true }
+  { url: "http://10.1.1.122:8080", name: "hunsun", latency: 200000, healthy: true }
 ];
 
 function selectBestAvailableNode() {
