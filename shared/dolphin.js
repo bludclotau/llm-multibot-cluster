@@ -69,7 +69,8 @@ function postJson(url, data, timeoutMs) {
 async function dolphinInfer(prompt, nPredict = 256, timeoutMs = 60000) {
   const data = await postJson(SEQUENCER_URL, {
     bot: "dolphin",
-    prompt
+    prompt,
+    maxTokens: nPredict
   }, timeoutMs);
 
   if (data && typeof data.reply === "string") {

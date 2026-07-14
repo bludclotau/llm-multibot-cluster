@@ -70,9 +70,10 @@ function sleep(ms) {
 }
 
 class Job {
-  constructor(bot, prompt, resolve, reject) {
+  constructor(bot, prompt, maxTokens, resolve, reject) {
     this.bot = bot;
     this.prompt = prompt;
+    this.maxTokens = maxTokens;
     this.resolve = resolve;
     this.reject = reject;
   }
@@ -97,7 +98,8 @@ async function processNext() {
 
   const payload = {
     model: "dolphin-2.8-mistral-7b-v02.Q4_K_M.gguf",
-    messages: [{ role: "user", content: job.prompt }]
+    messages: [{ role: "user", content: job.prompt }],
+    max_tokens: job.maxTokens || 256
   };
 
   try {
@@ -128,14 +130,14 @@ async function processNext() {
 }
 
 app.post("/ask", async (req, res) => {
-  const { bot, prompt } = req.body || {};
+  const { bot, prompt, maxTokens } = req.body || {};
   if (!prompt) {
     return res.status(400).json({ error: "Missing prompt" });
   }
 
   try {
     const reply = await new Promise((resolve, reject) => {
-      const job = new Job(bot || "unknown", prompt, resolve, reject);
+      const job = new Job(bot || "unknown", prompt, maxTokens || 256, resolve, reject);
       queue.push(job);
       processNext();
     });
