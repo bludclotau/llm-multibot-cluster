@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=snerloc
 WorkingDirectory=/home/snerloc/discord-bots/bot6
-ExecStart=/usr/bin/node bot.js
+ExecStart=/usr/bin/node /home/snerloc/discord-bots/shared/bot-runtime.js --persona bot6
 Restart=always
 RestartSec=5
 
