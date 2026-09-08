@@ -16,8 +16,7 @@ const HUMAN_DELAY_AFTER_MS = 4000 + Math.random() * 3000;   // 4–7s jitter
 const ALPHA = 0.3;
 
 const LLM_NODES = [
-  { url: "http://127.0.0.1:11434", name: "main", latency: 200, healthy: true },
-  { url: "http://10.1.1.122:8080", name: "hunsun", latency: 200000, healthy: true }
+  { url: "http://10.1.1.122:8081", name: "win-llama", latency: 600, healthy: true }
 ];
 
 function selectBestAvailableNode() {
