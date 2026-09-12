@@ -6,7 +6,9 @@ After=network.target
 Type=simple
 User=snerloc
 WorkingDirectory=/home/snerloc/discord-bots/{{directory}}
+EnvironmentFile=-/home/snerloc/discord-bots/{{directory}}/.env
 Environment=DISCORD_TOKEN={{token}}
+Environment=DISCORD_GUILD_ID={{guild}}
 Environment=PERSONA_FILE=/home/snerloc/discord-bots/{{persona}}
 Environment=LLM_MODEL={{model}}
 Environment=ALLOWED_CHANNELS={{channels}}

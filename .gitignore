@@ -4,3 +4,6 @@ node_modules/
 *.gguf
 memory.json
 .opencode_sanity
+
+# wizard-generated units that contain secrets
+deploy/*.service
