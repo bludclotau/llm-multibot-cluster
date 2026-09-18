@@ -5,7 +5,7 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const buildPersonaDepth = require("./persona-depth");
 const EmotionalState = require("./emotional-state");
 const RelationshipEngine = require("./relationship-engine");
-const { dolphinInfer, buildPrompt: buildDolphinPrompt } = require("./dolphin");
+const { dolphinInfer, buildPrompt: buildDolphinPrompt, callTool, formatToolResult, editWhenDone } = require("./dolphin");
 const { enqueue } = require("./llm-queue");
 
 // -------------------------
@@ -316,6 +316,51 @@ client.on("messageCreate", async (msg) => {
   }
 
   // Commands
+  const stripped = msg.content.replace(/<@!?\d+>/g, "").trim();
+  if (stripped.startsWith("!web ")) {
+    if (!msg.mentions.has(client.user)) return;
+    const url = stripped.slice(5).trim();
+    if (!url) {
+      msg.reply("Usage: !web <url>");
+      return;
+    }
+    let pending;
+    try {
+      pending = await msg.reply("Looking that up…");
+      const result = await callTool("web_fetch", { url }, { user_id: msg.author.id, bot_name: BOT_NAME });
+      await editWhenDone(pending, formatToolResult(result), "Web fetch failed.");
+    } catch (err) {
+      console.error("web tool error:", err);
+      await editWhenDone(pending, "I hit a wall fetching that page.", "Web fetch failed.");
+    }
+    return;
+  }
+
+  if (stripped.startsWith("!browse ")) {
+    if (!msg.mentions.has(client.user)) return;
+    const rest = stripped.slice(8).trim();
+    if (!rest) {
+      msg.reply("Usage: !browse <url> [what to do]");
+      return;
+    }
+    let pending;
+    try {
+      pending = await msg.reply("On it…");
+      const reply = await dolphinInfer(rest, 256, 90000, {
+        persona: BOT_NAME,
+        task: process.env.BOT_TASK || getCurrentMode() || "general",
+        user_id: msg.author.id,
+        bot_name: BOT_NAME,
+        agent: true
+      });
+      await editWhenDone(pending, reply, "Couldn't finish that.");
+    } catch (err) {
+      console.error("browse error:", err);
+      await editWhenDone(pending, "I hit a wall trying to browse that page.", "Browse failed.");
+    }
+    return;
+  }
+
   if (msg.content.startsWith("!mode ")) {
     const mode = msg.content.slice(6).trim().toLowerCase();
     const validModes = ["chat", "debate", "story", "roleplay", "collaboration", "insult", "philosophy"];
@@ -390,19 +435,29 @@ async function generateAndSendReply(msg, wasMentioned, priority) {
       conversationHistory[msg.channel.id],
       null
     );
-    const reply = await dolphinInfer(flatPrompt, 256, LLM_TIMEOUT_MS);
-    const elapsed = Date.now() - startTime;
-    updateHealth(elapsed);
-    if (!reply) { msg.reply("I received an empty response from the model."); return; }
+    let pending;
+    try {
+      pending = await msg.reply("…");
+      const reply = await dolphinInfer(flatPrompt, 256, LLM_TIMEOUT_MS, {
+        persona: BOT_NAME,
+        task: process.env.BOT_TASK || getCurrentMode() || "general",
+        user_id: msg.author.id,
+        bot_name: BOT_NAME
+      });
+      const elapsed = Date.now() - startTime;
+      updateHealth(elapsed);
+      if (!reply) {
+        await editWhenDone(pending, "I received an empty response from the model.");
+        return;
+      }
 
-    addToHistory(msg.channel.id, "assistant", reply);
-    await simulateTyping(msg, reply);
-    console.log(`[${BOT_NAME}] SENDING reply for msg.id=${msg.id} at ${new Date().toISOString()}`);
-
-    if (msg.author.bot) {
-      await safeReply(msg.channel, reply.slice(0, 1900));
-    } else {
-      await msg.reply(reply.slice(0, 1900));
+      addToHistory(msg.channel.id, "assistant", reply);
+      console.log(`[${BOT_NAME}] SENDING reply for msg.id=${msg.id} at ${new Date().toISOString()}`);
+      await editWhenDone(pending, reply);
+    } catch (err) {
+      console.error("callOnce error:", err);
+      await editWhenDone(pending, "Hit a wall thinking — try again in a moment.");
+      throw err;
     }
 
     consecutiveFailures = 0;
