@@ -1,15 +1,9 @@
 const nodes = [
   {
     id: "nodeA",
-    url: "http://10.1.1.7:8080",
+    url: "http://10.1.1.122:8081",
     maxSlots: 1,
-    initialLatencyMs: 2000
-  },
-  {
-    id: "nodeB",
-    url: "http://10.1.1.7:8081",
-    maxSlots: 1,
-    initialLatencyMs: 2000
+    initialLatencyMs: 600
   }
 ];
 

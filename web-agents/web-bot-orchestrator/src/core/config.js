@@ -1,17 +1,10 @@
 const nodes = [
   {
     id: "nodeA",
-    url: "http://10.1.1.7:8080",
-    model: "/home/snerloc/models/uncensored/llama-3.1-70b-uncensored.gguf",
+    url: "http://10.1.1.122:8081",
+    model: "qwen2.5-7b-instruct-q4_k_m",
     maxSlots: 1,
-    initialLatencyMs: 2000
-  },
-  {
-    id: "nodeB",
-    url: "http://10.1.1.7:8081",
-    model: "/home/snerloc/models/uncensored/llama-3.1-70b-uncensored.gguf",
-    maxSlots: 1,
-    initialLatencyMs: 2000
+    initialLatencyMs: 600
   }
 ];
 

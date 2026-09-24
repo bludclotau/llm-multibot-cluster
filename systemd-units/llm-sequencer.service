@@ -4,12 +4,14 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-WorkingDirectory=/home/snerloc/discord-bots/llm-sequencer
-ExecStart=/usr/bin/node index.js
+Type=simple
+User=snerloc
+Group=snerloc
+WorkingDirectory=/home/snerloc/vibe-hub/discord-bots/llm-sequencer
+EnvironmentFile=-/etc/discord-bots/sequencer.env
+ExecStart=/usr/bin/node /home/snerloc/vibe-hub/discord-bots/llm-sequencer/index.js
 Restart=always
 RestartSec=5
-User=snerloc
-Environment=NODE_ENV=production
 
 [Install]
 WantedBy=multi-user.target
