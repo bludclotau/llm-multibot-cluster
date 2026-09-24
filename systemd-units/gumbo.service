@@ -1,15 +1,15 @@
 [Unit]
 Description=Gumbo Discord Bot
-After=network-online.target llm-sequencer.service
-Requires=llm-sequencer.service
+After=network-online.target gguf-router.service
+Wants=network-online.target
 
 [Service]
 Type=simple
-User=snerloc
-Group=snerloc
-WorkingDirectory=/home/snerloc/vibe-hub/discord-bots/gumbo
+User=wendy
+Group=discordbots
+WorkingDirectory=/home/wendy/waffle_house/llm-multibot-cluster/gumbo
 EnvironmentFile=/etc/discord-bots/gumbo.env
-ExecStart=/usr/bin/node /home/snerloc/vibe-hub/discord-bots/shared/bot.js
+ExecStart=/usr/bin/node /home/wendy/waffle_house/llm-multibot-cluster/shared/bot-runtime.js --persona gumbo
 Restart=always
 RestartSec=5
 
