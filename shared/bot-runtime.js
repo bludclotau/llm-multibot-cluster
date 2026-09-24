@@ -42,6 +42,19 @@ const personaStyle = {
   tone: personaData.tone
 };
 
+function loadPersonaFile() {
+  const file = process.env.PERSONA_FILE;
+  if (!file) return "";
+  try {
+    return fs.readFileSync(file, "utf8").trim();
+  } catch (err) {
+    console.error(`Could not read PERSONA_FILE ${file}: ${err.message}`);
+    return "";
+  }
+}
+
+const personaText = loadPersonaFile();
+
 // -------------------------
 // Single-instance lock
 // -------------------------
@@ -272,7 +285,8 @@ function buildPrompt(authorUsername, wasMentioned, relationshipState) {
     emotion.describe(),
     relationshipState
   );
-  return `${personaScaffold}\n${modeInstruction}\n${mentionContext}\nMessage from: ${authorUsername}`.trim();
+  const voice = personaText ? `${personaText}\n\n` : "";
+  return `${voice}${personaScaffold}\n${modeInstruction}\n${mentionContext}\nMessage from: ${authorUsername}`.trim();
 }
 
 function addToHistory(channelId, role, content) {
@@ -295,7 +309,7 @@ const client = new Client({
 // -------------------------
 // Event: ready
 // -------------------------
-client.on("ready", () => {
+client.on("clientReady", () => {
   console.log(`[${BOT_NAME}] logged in as ${client.user.tag}`);
   loadMemory();
 });
