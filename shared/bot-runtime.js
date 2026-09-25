@@ -87,8 +87,31 @@ acquireSingleInstanceLock();
 // -------------------------
 // Config
 // -------------------------
-const TOKEN = process.env.DISCORD_TOKEN;
-const ALLOWED_CHANNELS = (process.env.ALLOWED_CHANNELS || "").split(",").filter(Boolean);
+// systemd LoadCredential= exposes files under $CREDENTIALS_DIRECTORY.
+// Wendy's unit uses <persona>.discord_token and <persona>.allowed_channels.
+// Bots without those files keep using their EnvironmentFile.
+function readCredential(id) {
+  const dir = process.env.CREDENTIALS_DIRECTORY;
+  if (!dir || !id || !/^[A-Za-z0-9_.-]+$/.test(id)) return "";
+  const root = path.resolve(dir);
+  const file = path.resolve(root, id);
+  if (path.dirname(file) !== root) return "";
+  try {
+    const value = fs.readFileSync(file, "utf8").trim();
+    if (!value) console.error(`[${BOT_NAME}] credential ${id} is empty`);
+    return value;
+  } catch {
+    return "";
+  }
+}
+
+const tokenFromCredentials = readCredential(`${PERSONA_NAME}.discord_token`);
+const channelsFromCredentials = readCredential(`${PERSONA_NAME}.allowed_channels`);
+const TOKEN = tokenFromCredentials || process.env.DISCORD_TOKEN;
+const ALLOWED_CHANNELS = (channelsFromCredentials || process.env.ALLOWED_CHANNELS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 const ALLOW_BOT_MESSAGES = process.env.ALLOW_BOT_MESSAGES === "true";
 
 const LLM_TIMEOUT_MS = parseInt(process.env.LLM_TIMEOUT_MS || "180000", 10);
@@ -506,5 +529,10 @@ if (!TOKEN) {
   console.error(`DISCORD_TOKEN is not set for ${BOT_NAME}.`);
   process.exit(1);
 }
+
+console.log(
+  `[${BOT_NAME}] discord token from ${tokenFromCredentials ? "systemd credentials" : "environment"}; ` +
+  `channels from ${channelsFromCredentials ? "systemd credentials" : "environment"}`
+);
 
 client.login(TOKEN);

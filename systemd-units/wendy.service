@@ -1,14 +1,21 @@
 [Unit]
 Description=Wendy Discord Bot
-After=network-online.target gguf-router.service
+After=network-online.target gguf-router.service lab-secrets-resolve.service
 Wants=network-online.target
+Requires=lab-secrets-resolve.service
 
 [Service]
 Type=simple
 User=wendy
 Group=discordbots
 WorkingDirectory=/home/wendy/waffle_house/llm-multibot-cluster/wendy
-EnvironmentFile=/etc/discord-bots/wendy.env
+Environment=BOT_NAME=wendy
+Environment=PERSONA_FILE=/etc/discord-bots/personas/wendy.txt
+Environment=ALLOW_BOT_MESSAGES=false
+# Names only. lab-secrets-resolve decrypts these rows and systemd reads
+# the plaintext from the socket into $CREDENTIALS_DIRECTORY.
+LoadCredential=wendy.discord_token:/run/lab-secrets/resolve.sock
+LoadCredential=wendy.allowed_channels:/run/lab-secrets/resolve.sock
 ExecStart=/usr/bin/node /home/wendy/waffle_house/llm-multibot-cluster/shared/bot-runtime.js --persona wendy
 Restart=always
 RestartSec=5
